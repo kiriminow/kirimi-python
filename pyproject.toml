@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kirimi"
+name = "kirimi-sdk"
 version = "0.1.0"
 description = "Official Python SDK for Kirimi WhatsApp API"
 readme = "README.md"
@@ -38,7 +38,7 @@ dev = [
 [project.urls]
 Homepage = "https://kirimi.id"
 Documentation = "https://docs.kirimi.id"
-Repository = "https://github.com/kirimi/kirimi-python"
+Repository = "https://github.com/kiriminow/kirimi-python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kirimi"]
