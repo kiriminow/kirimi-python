@@ -8,7 +8,13 @@ from .exceptions import (
     KirimiError,
     KirimiValidationError,
 )
-from .models import KirimiResponse
+from .models import (
+    BulkContact,
+    DepositStatus,
+    KirimiResponse,
+    OtpMethod,
+    OtpType,
+)
 
 __all__ = [
     "Kirimi",
@@ -18,6 +24,10 @@ __all__ = [
     "KirimiValidationError",
     "KirimiConnectionError",
     "KirimiResponse",
+    "BulkContact",
+    "DepositStatus",
+    "OtpMethod",
+    "OtpType",
 ]
 
 __version__ = "0.1.0"

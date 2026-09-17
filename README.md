@@ -17,7 +17,7 @@ client = Kirimi(user_code="YOUR_USER_CODE", secret="YOUR_SECRET")
 
 resp = client.send_message(
     device_id="YOUR_DEVICE_ID",
-    phone="628123456789",
+    receiver="628123456789",
     message="Halo dari Kirimi SDK!",
 )
 print(resp.success, resp.message)
@@ -62,27 +62,51 @@ Kirimi(
 
 ## All Methods
 
-### Messaging
+### Messaging (WhatsApp Unofficial)
 
 ```python
-# Send text/media message
-client.send_message(device_id="D", phone="628xxx", message="hi", media_url="https://...")
+# Send text/media message. `receiver` is the canonical field name.
+client.send_message(device_id="D", receiver="628xxx", message="hi", media_url="https://...")
 
 # Send file (BinaryIO, bytes, or pathlib.Path)
 with open("doc.pdf", "rb") as f:
-    client.send_message_file(device_id="D", phone="628xxx", file=f, file_name="doc.pdf", message="see attached")
+    client.send_message_file(device_id="D", receiver="628xxx", file=f, file_name="doc.pdf", message="see attached")
 
 # Send message fast (no typing indicator)
-client.send_message_fast(device_id="D", phone="628xxx", message="hi")
+client.send_message_fast(device_id="D", receiver="628xxx", message="hi")
+```
 
-# Send via WABA (WhatsApp Business API)
-client.send_waba_message(device_id="D", phone="628xxx", message="hi")
+### WABA (WhatsApp Business API)
+
+WABA endpoints use `waba_id`, never `device_id`.
+
+```python
+# Send a Meta-approved template
+client.send_waba_message(
+    waba_id="W",
+    to="628xxx",
+    template_name="order_update",
+    variables=["Budi", "123"],
+    header={"type": "image", "link": "https://..."},
+    buttons=[{"type": "url", "url": "https://..."}],
+)
+
+# Free-form reply (inside the 24h customer service window)
+client.waba_reply(waba_id="W", to="628xxx", message={"type": "text", "text": "hi"})
+
+client.waba_conversations(limit=50, page=1)
+client.waba_templates_sync(waba_id="W")
+client.waba_send_otp(waba_id="W", to="628xxx", template_name="auth_otp")
+client.waba_verify_otp(waba_id="W", to="628xxx", otp_code="123456")
 ```
 
 ### Devices
 
 ```python
-client.list_devices()
+client.create_device(package_id=7, voucher_code="DISC10")
+client.connect_device(device_id="D")
+client.renew_device(device_id="D", package_id=7)
+client.list_devices(page=1, limit=10)
 client.device_status(device_id="D")
 client.device_status_enhanced(device_id="D")
 ```
@@ -96,7 +120,16 @@ client.user_info()
 ### Contacts
 
 ```python
-client.save_contact(phone="628xxx", name="John Doe", email="john@example.com")
+# The API accepts `nama` + `nomor` only.
+client.save_contact(nama="John Doe", nomor="628xxx")
+
+# Bulk save up to 1000 contacts
+from kirimi import BulkContact
+
+client.save_contacts_bulk(
+    contacts=[BulkContact(nama="John Doe", nomor="628xxx"), {"nama": "Jane", "nomor": "628yyy"}],
+    device_id="D",
+)
 ```
 
 ### OTP v1
@@ -117,37 +150,67 @@ client.validate_otp(device_id="D", phone="628xxx", otp="123456")
 
 ### OTP v2
 
+`method` is one of `whatsapp` (alias `waba`), `device`, or `waba_user`.
+
 ```python
-# Send OTP (device or WABA method)
+# whatsapp — Kirimi official provider (Rp 595 / delivered)
+client.send_otp_v2(phone="628xxx", method="whatsapp", app_name="MyApp")
+
+# device — your own connected device, free
 client.send_otp_v2(
     phone="628xxx",
+    method="device",
     device_id="D",
-    method="device",             # "device" | "waba"
-    app_name="MyApp",
-    custom_message="Your OTP for {app}: {otp}",
+    custom_message="Your OTP for {app}: {{otp}}",   # must contain {{otp}}
+)
+
+# waba_user — your own WABA + AUTHENTICATION template, free
+client.send_otp_v2(
+    phone="628xxx",
+    method="waba_user",
+    waba_id="W",
+    template_name="auth_otp",
 )
 
 # Verify OTP
 client.verify_otp_v2(phone="628xxx", otp_code="123456")
 ```
 
-### Broadcast
+### OTP Reverse
 
 ```python
-# phones can be a list or comma-separated string
+client.otp_reverse_create(
+    phone="628xxx",
+    device_id="D",
+    app_name="MyApp",
+    callback_url="https://example.com/cb",
+    custom_message="Kirim {{token}} dari {{phone}}",  # must contain both placeholders
+)
+client.otp_reverse_status(token="TOKEN123")   # pending | verified | phone_mismatch | expired
+```
+
+### Broadcast
+
+`numbers` must be a list — the API rejects a joined string. `label` is required.
+
+```python
 client.broadcast_message(
     device_id="D",
-    phones=["628111", "628222", "628333"],
+    label="promo-juli",
+    numbers=["628111", "628222", "628333"],   # max 1000
     message="Promo spesial!",
-    delay=2.0,  # seconds between each message
+    delay=45,  # seconds between each message, server clamps 30–3600
 )
 ```
 
 ### Deposits & Packages
 
 ```python
-client.list_deposits(status="paid")   # "" | "paid" | "unpaid" | "expired"
 client.list_packages()
+client.create_deposit(nominal=50000)        # minimum 100
+client.deposit_status(ref="REF1")
+client.cancel_deposit(ref="REF1")
+client.list_deposits(status="paid")          # "unpaid" | "paid" | "expired" | "cancelled"
 ```
 
 ## Response Model
@@ -170,7 +233,7 @@ from kirimi.exceptions import KirimiAPIError, KirimiConnectionError
 client = Kirimi(user_code="...", secret="...")
 
 try:
-    resp = client.send_message(device_id="D", phone="628xxx", message="hi")
+    resp = client.send_message(device_id="D", receiver="628xxx", message="hi")
 except KirimiAPIError as e:
     print(f"API error {e.status_code}: {e.message}")
 except KirimiConnectionError as e:
